@@ -4,6 +4,7 @@ import math
 from io import StringIO
 
 import pandas as pd
+import plotly.express as px
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -13,6 +14,8 @@ from secop_client import build_where, fetch_count, fetch_distinct, fetch_rows, n
 load_dotenv()
 
 st.set_page_config(page_title="SECOP Explorer", page_icon="📊", layout="wide")
+st.link_button("Home", "http://135.181.182.60:8500/", use_container_width=False)
+st.image("logoProtelec.png", width=180)
 
 
 @st.cache_data(ttl=300)
@@ -31,7 +34,24 @@ def cached_rows(where: str | None, limit: int, offset: int, order: str) -> pd.Da
     return normalize_dataframe(raw_df)
 
 
-st.title("SECOP API Explorer")
+def build_top7_pie_source(series: pd.Series) -> pd.DataFrame:
+    normalized = series.fillna("(sin dato)").astype(str).str.strip()
+    normalized = normalized.replace("", "(sin dato)")
+    counts = normalized.value_counts()
+
+    top = counts.head(7)
+    other_count = int(counts.iloc[7:].sum())
+
+    labels = top.index.tolist()
+    values = top.astype(int).tolist()
+    if other_count > 0:
+        labels.append("Otros")
+        values.append(other_count)
+
+    return pd.DataFrame({"categoria": labels, "cantidad": values})
+
+
+st.title("SECOP explorador")
 st.caption("Dataset: jbjy-vk9h · Source: www.datos.gov.co")
 
 with st.sidebar:
@@ -126,6 +146,53 @@ if "nombre_entidad" in df.columns and not df.empty:
     st.subheader("Top entidades (current page)")
     top_entities = df["nombre_entidad"].fillna("(sin dato)").value_counts().head(10)
     st.bar_chart(top_entities)
+
+pie_fields = [
+    "departamento",
+    "ciudad",
+    "estado_contrato",
+    "proveedor_adjudicado",
+    "orden",
+    "sector",
+    "rama",
+    "tipo_de_contrato",
+    "modalidad_de_contratacion",
+    "justificacion_modalidad_de",
+]
+
+available_pie_fields = [field for field in pie_fields if field in df.columns]
+
+st.subheader("Distribucion por categoria (current page)")
+if df.empty:
+    st.info("No hay filas en la pagina actual para graficar.")
+elif not available_pie_fields:
+    st.info("No se encontraron columnas objetivo para graficos de pastel en esta pagina.")
+else:
+    pie_colors = [
+        "#0074D9",
+        "#0B294A",
+        "#7FDBFF",
+        "#005EA6",
+        "#2D8CFF",
+        "#4BA3F0",
+        "#8EC8FF",
+        "#C8D4E3",
+    ]
+    for i in range(0, len(available_pie_fields), 2):
+        cols = st.columns(2)
+        for col, field in zip(cols, available_pie_fields[i : i + 2]):
+            with col:
+                pie_df = build_top7_pie_source(df[field])
+                fig = px.pie(
+                    pie_df,
+                    names="categoria",
+                    values="cantidad",
+                    title=f"{field} (top 7 + otros)",
+                    color_discrete_sequence=pie_colors,
+                )
+                fig.update_traces(textposition="inside", textinfo="percent+label", hovertemplate="%{label}<br>Cantidad: %{value}<br>Porcentaje: %{percent}<extra></extra>")
+                fig.update_layout(margin=dict(l=10, r=10, t=45, b=10), height=420)
+                st.plotly_chart(fig, use_container_width=True)
 
 export_df = df[selected_cols].copy()
 
