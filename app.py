@@ -14,7 +14,7 @@ from secop_client import build_where, fetch_count, fetch_distinct, fetch_rows, n
 load_dotenv()
 
 st.set_page_config(page_title="SECOP Explorer", page_icon="📊", layout="wide")
-st.link_button("Home", "http://135.181.182.60:8500/", use_container_width=False)
+st.link_button("Home", "https://streamlit.protelec.co/", use_container_width=False)
 st.image("logoProtelec.png", width=180)
 
 
